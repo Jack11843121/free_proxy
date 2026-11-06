@@ -1,6 +1,8 @@
 # free_proxy
 
-> 一个本地入口，聚合**所有**第三方 IP 代理供应商 —— 品赞、快代理、巨量…… 自动健康检查、智能轮换、自动补货、去重淘汰。你的爬虫 / RPA / 业务代码只需要把代理指向 `127.0.0.1:8899`，从此**永远不用再关心「该用哪家、IP 是不是过期了、被封了怎么办」**。
+> **当你的爬虫 / 数据采集 / RPA 需要「走代理 IP 访问目标」时**，通常要自己对接第三方代理 IP 供应商——各家接口、鉴权、返回格式都不一样，还得自己处理 IP 过期、被封、切换。free_proxy 把这些全收敛成一个**本地 HTTP 代理端口**：内置品赞、快代理、巨量、16云/亿牛云、花生等适配器，自动健康检查 / 智能轮换 / 自动补货 / 去重淘汰，并带 Web 控制台与 Redis 多机集群。
+>
+> **只需编辑 `conf/config.yaml` 填好供应商凭证并启动，把你的业务代理地址指向 `127.0.0.1:8899` 即可直接使用。**
 
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -196,6 +198,8 @@ curl http://127.0.0.1:8891/api/v1/proxy
 | [docs/DEPLOY.md](docs/DEPLOY.md) | Docker / systemd / 裸进程 / 腾讯云 / 多机集群 |
 | [docs/CLUSTER.md](docs/CLUSTER.md) | Redis 对等集群架构与部署 |
 | [docs/PERFORMANCE.md](docs/PERFORMANCE.md) | 性能基准结论 + 压测方法 + 调优要点 |
+| [docs/TEST_REPORT.md](docs/TEST_REPORT.md) | 功能测试报告（51 项真实结果 + 生产验证） |
+| [docs/LOAD_TEST_REPORT.md](docs/LOAD_TEST_REPORT.md) | 压测报告（loopback 实测 + 生产模拟示意） |
 | [docs/API.md](docs/API.md) | 控制面 JSON API 参考 |
 | [CHANGELOG.md](CHANGELOG.md) | 版本记录 |
 
