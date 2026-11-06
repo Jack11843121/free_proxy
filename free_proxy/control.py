@@ -1,5 +1,7 @@
-"""控制面 HTTP API：查看状态、代理列表、手动触发刷新/检查。"""
+"""控制面：HTTP API + 自包含 Web 控制台（dashboard）。"""
 from __future__ import annotations
+
+from pathlib import Path
 
 from aiohttp import web
 
@@ -9,6 +11,10 @@ from .logger import get_logger
 from .util import parse_listen
 
 log = get_logger("control")
+
+_INDEX_PATH = Path(__file__).resolve().parent / "web" / "index.html"
+# 无需鉴权即可访问的静态页面（API 仍受 control.token 保护）
+_PUBLIC_PATHS = {"/", "/index.html", "/healthz"}
 
 
 class ControlAPI:
@@ -20,6 +26,8 @@ class ControlAPI:
 
     def build_app(self) -> web.Application:
         app = web.Application(middlewares=[self._auth])
+        app.router.add_get("/", self.index)
+        app.router.add_get("/index.html", self.index)
         app.router.add_get("/healthz", self.health)
         app.router.add_get("/api/v1/status", self.status)
         app.router.add_get("/api/v1/proxies", self.proxies)
@@ -31,7 +39,7 @@ class ControlAPI:
 
     @web.middleware
     async def _auth(self, request, handler):
-        if request.path == "/healthz":
+        if request.path in _PUBLIC_PATHS:
             return await handler(request)
         token = self.cfg.token
         if token:
@@ -53,6 +61,13 @@ class ControlAPI:
             await self._runner.cleanup()
 
     # ---------------- handlers ----------------
+    async def index(self, request):
+        try:
+            html = _INDEX_PATH.read_text(encoding="utf-8")
+        except OSError:
+            html = "<html><body><h1>free_proxy</h1><p>控制台静态文件缺失。</p></body></html>"
+        return web.Response(text=html, content_type="text/html", charset="utf-8")
+
     async def health(self, request):
         return web.json_response({"status": "ok", "version": __version__})
 

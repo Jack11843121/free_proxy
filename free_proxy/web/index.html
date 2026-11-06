@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>free_proxy 控制台</title>
+<style>
+  :root {
+    --bg: #0f1420; --panel: #171e2e; --panel2: #1f2937; --border: #2a3548;
+    --text: #e5eaf3; --muted: #8a96ad; --accent: #3b82f6; --ok: #22c55e;
+    --warn: #f59e0b; --bad: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+  header { padding: 18px 28px; border-bottom: 1px solid var(--border); display: flex; align-items: baseline; gap: 12px; }
+  header h1 { margin: 0; font-size: 20px; }
+  header .ver { color: var(--muted); font-size: 13px; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 28px 60px; }
+
+  .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+  .card .num { font-size: 30px; font-weight: 700; }
+  .card .label { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .card.ok .num { color: var(--ok); }
+  .card.bad .num { color: var(--bad); }
+
+  .meta { color: var(--muted); font-size: 13px; margin: 16px 2px 20px; }
+  .meta b { color: var(--text); font-weight: 500; }
+
+  .actions { display: flex; gap: 10px; margin-bottom: 26px; flex-wrap: wrap; }
+  button { background: var(--accent); color: #fff; border: 0; padding: 9px 16px;
+           border-radius: 8px; font-size: 14px; cursor: pointer; }
+  button:hover { filter: brightness(1.1); }
+  button.ghost { background: var(--panel2); color: var(--text); border: 1px solid var(--border); }
+
+  .section { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin: 6px 0 10px; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
+  .chip { background: var(--panel2); border: 1px solid var(--border); border-radius: 20px; padding: 5px 13px; font-size: 13px; }
+  .chip .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); margin-right: 7px; }
+
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 14px; }
+  th { color: var(--muted); font-weight: 500; background: var(--panel2); }
+  tr:last-child td { border-bottom: 0; }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; }
+  .pill.ok { background: rgba(34,197,94,.15); color: var(--ok); }
+  .pill.bad { background: rgba(239,68,68,.15); color: var(--bad); }
+  .lat { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .empty { color: var(--muted); padding: 28px; text-align: center; }
+
+  #msg { position: fixed; right: 24px; bottom: 24px; background: var(--panel2);
+         border: 1px solid var(--border); padding: 12px 16px; border-radius: 10px;
+         font-size: 14px; display: none; max-width: 320px; }
+  @media (max-width: 720px) { .cards { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+<header>
+  <h1>free_proxy 控制台</h1>
+  <span class="ver" id="version">-</span>
+  <input id="token" type="password" placeholder="访问令牌（control.token 非空时填写）"
+         style="margin-left:auto;background:#171e2e;border:1px solid #2a3548;color:#e5eaf3;
+                border-radius:8px;padding:6px 12px;font-size:13px;width:220px;">
+</header>
+<div class="wrap">
+  <div class="cards">
+    <div class="card"><div class="num" id="s-total">-</div><div class="label">代理总数</div></div>
+    <div class="card ok"><div class="num" id="s-alive">-</div><div class="label">存活</div></div>
+    <div class="card bad"><div class="num" id="s-dead">-</div><div class="label">失效 / 过期</div></div>
+    <div class="card"><div class="num" id="s-providers">-</div><div class="label">供应商</div></div>
+  </div>
+  <div class="meta">
+    调度策略 <b id="m-strategy">-</b> · 存储后端 <b id="m-backend">-</b> ·
+    最近刷新 <b id="m-refresh">-</b> · 最近健康检查 <b id="m-check">-</b>
+  </div>
+  <div class="actions">
+    <button onclick="doAction('refresh')">立即刷新（拉取新 IP）</button>
+    <button onclick="doAction('check')">立即健康检查</button>
+    <button class="ghost" onclick="doProxy()">取一条代理</button>
+  </div>
+
+  <div class="section">已启用供应商</div>
+  <div class="chips" id="providers"><span class="empty">加载中…</span></div>
+
+  <div class="section">代理列表</div>
+  <table>
+    <thead><tr>
+      <th>IP</th><th>端口</th><th>供应商</th><th>延迟</th><th>状态</th><th>成功 / 失败</th><th>剩余有效期</th>
+    </tr></thead>
+    <tbody id="rows"><tr><td colspan="7" class="empty">加载中…</td></tr></tbody>
+  </table>
+</div>
+<div id="msg"></div>
+
+<script>
+function token() {
+  return document.getElementById("token").value.trim();
+}
+async function j(url, opts) {
+  const t = token();
+  const sep = url.includes("?") ? "&" : "?";
+  const r = await fetch(t ? url + sep + "token=" + encodeURIComponent(t) : url, opts);
+  const data = await r.json().catch(() => ({}));
+  return { ok: r.ok, status: r.status, data };
+}
+function ago(ts) {
+  if (!ts) return "-";
+  const s = Math.floor(Date.now() / 1000 - ts);
+  if (s < 60) return s + " 秒前";
+  if (s < 3600) return Math.floor(s / 60) + " 分钟前";
+  return new Date(ts * 1000).toLocaleString();
+}
+function remain(ts) {
+  if (!ts) return "-";
+  const s = Math.floor(ts - Date.now() / 1000);
+  if (s <= 0) return "已过期";
+  return s < 60 ? s + "s" : Math.floor(s / 60) + "m" + (s % 60) + "s";
+}
+function toast(t) {
+  const m = document.getElementById("msg");
+  m.textContent = t; m.style.display = "block";
+  clearTimeout(m._t); m._t = setTimeout(() => { m.style.display = "none"; }, 4000);
+}
+async function loadStatus() {
+  const { ok, data } = await j("/api/v1/status");
+  if (!ok) return;
+  document.getElementById("version").textContent = "v" + (data.version || "?");
+  document.getElementById("s-total").textContent = data.total ?? 0;
+  document.getElementById("s-alive").textContent = data.alive ?? 0;
+  document.getElementById("s-dead").textContent = (data.expired ?? 0);
+  document.getElementById("s-providers").textContent = (data.providers || []).length;
+  document.getElementById("m-strategy").textContent = data.strategy || "-";
+  document.getElementById("m-backend").textContent = data.backend || "-";
+  document.getElementById("m-refresh").textContent = ago(data.last_refresh);
+  document.getElementById("m-check").textContent = ago(data.last_check);
+  const chips = document.getElementById("providers");
+  chips.innerHTML = (data.providers || []).length
+    ? data.providers.map(p => `<span class="chip"><span class="dot"></span>${p}</span>`).join("")
+    : '<span class="empty">未启用任何供应商（请在 config.yaml 的 providers 里配置）</span>';
+}
+async function loadProxies() {
+  const { ok, data } = await j("/api/v1/proxies?limit=1000");
+  const rows = document.getElementById("rows");
+  const list = ok ? (data.proxies || []) : [];
+  if (!list.length) { rows.innerHTML = '<tr><td colspan="7" class="empty">池内暂无代理</td></tr>'; return; }
+  rows.innerHTML = list.map(p => {
+    const alive = p.alive;
+    return `<tr>
+      <td>${p.ip}</td><td>${p.port}</td><td>${p.provider}</td>
+      <td class="lat">${p.latency_ms ? Math.round(p.latency_ms) + " ms" : "-"}</td>
+      <td><span class="pill ${alive ? "ok" : "bad"}">${alive ? "存活" : "失效"}</span></td>
+      <td>${p.success} / ${p.fail}</td>
+      <td class="lat">${remain(p.expire_at)}</td>
+    </tr>`;
+  }).join("");
+}
+async function doAction(type) {
+  toast("已提交 " + type + " …");
+  await j("/api/v1/" + type, { method: "POST" });
+  await refresh();
+}
+async function doProxy() {
+  const { ok, status, data } = await j("/api/v1/proxy");
+  if (ok) {
+    const auth = data.user ? `${data.user}:***` : "免认证";
+    toast(`代理：${data.ip}:${data.port}（${data.provider}，${auth}）`);
+  } else {
+    toast(`无可用代理（HTTP ${status}）`);
+  }
+}
+async function refresh() { await Promise.all([loadStatus(), loadProxies()]); }
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>

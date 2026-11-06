@@ -1,6 +1,8 @@
 # 控制面 API 参考
 
-默认监听 `127.0.0.1:8891`。若配置了 `control.token`，除 `/healthz` 外都需带鉴权：
+默认监听 `127.0.0.1:8891`。**想用可视化界面**：浏览器打开 `http://127.0.0.1:8891/` 即可（自带 dashboard）。下面是 JSON API 参考。
+
+若配置了 `control.token`，除 `/healthz`、`/`（静态页面）外都需带鉴权：
 `Authorization: Bearer <token>` 或 `?token=<token>`。
 
 所有响应均为 `application/json`。

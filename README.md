@@ -32,7 +32,7 @@
 - ✅ **真正的代理网关**：支持标准 HTTP 前向代理 + HTTPS `CONNECT` 隧道，字节级透明中继，`requests` / `aiohttp` / `curl` / 浏览器 / RPA 全部零改动。
 - ✅ **自愈代理池**：定时健康检查测延时，连续失败自动判死淘汰，过期 IP 自动清理，池不足自动补货。
 - ✅ **多种调度策略**：轮询 / 随机 / 最快 / 加权（按失败次数与延迟）。
-- ✅ **控制面 API**：查看状态、代理列表、取单条 IP 直连、手动触发刷新/检查。
+- ✅ **控制面 API + Web 控制面板**：自带可视化 dashboard（代理池状态 / 供应商 / 代理列表 / 一键刷新检查），零前端构建、随包内嵌；同时提供完整 JSON 控制面 API，可接监控告警。
 - ✅ **多机共享（可选）**：`store.backend=redis` 时多台服务器共用同一份代理池，`RPOPLPUSH` 环形公平轮转。
 - ✅ **零泄露安全**：真实密钥不硬编码，用 `${ENV}` 环境变量注入；`.gitignore` 已排除 `config.yaml`。
 
@@ -63,16 +63,24 @@
 
 ## 快速开始
 
-### 1. 安装
+### 1. 安装（一键）
 
 ```bash
 git clone https://github.com/Jack11843121/free_proxy.git
 cd free_proxy
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt        # 依赖：aiohttp、PyYAML（Redis 共享池才需要 redis）
+bash install.sh                  # 建 venv + 装依赖 + 生成 config.yaml + 装 free-proxy 命令
+# Linux 想直接注册成 systemd 服务（需 root）：
+sudo bash install.sh --systemd
 ```
 
-Python ≥ 3.9 即可。
+> 依赖 Python ≥ 3.9；`install.sh` 默认走清华 PyPI 镜像加速，可用 `PIP_INDEX_URL=... bash install.sh` 覆盖。
+
+手动安装（等价）：
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install .                    # 安装 free-proxy 命令行 + 依赖
+```
 
 ### 2. 配置
 
@@ -97,10 +105,12 @@ providers:
 ### 3. 启动
 
 ```bash
-python -m free_proxy -c config.yaml
-# 调试：拉取 + 健康检查各一轮后退出
-python -m free_proxy -c config.yaml --check-once
+free-proxy -c config.yaml         # 装了命令行脚本后
+# 或：python -m free_proxy -c config.yaml
+# 调试：python -m free_proxy -c config.yaml --check-once
 ```
+
+启动后浏览器打开 **http://127.0.0.1:8891** 即是 Web 控制面板（前向代理在 `127.0.0.1:8899`）。
 
 看到 `前向代理已监听 0.0.0.0:8899`、`控制面已监听 127.0.0.1:8891` 即成功。
 
@@ -139,7 +149,7 @@ curl http://127.0.0.1:8891/api/v1/proxy
 
 | 供应商 | `type` | 鉴权方式 | 说明 |
 |---|---|---|---|
-| 品赞（ipzan.com） | `pinzan` | `no` + `secret` 直传 | 白名单模式，提取前把出口 IP 加白 |
+| 品赞（ipzan.com） | `pinzan` | `no` + `secret` 直传 | 白名单(whitelist)/账号密码(auth)两种鉴权，提取前出口 IP 需加白 |
 | 快代理（kuaidaili.com） | `kuaidaili` | `secret_id` + `signature`（token / HMAC-SHA1） | 私密/独享/隧道均可 |
 | 巨量代理（juliangip.com） | `julang` | `trade_no` + `sign`（MD5） | 动态/按量/企业版均可 |
 | 任意供应商 | `generic` | 可配 `none/token/md5/hmacsha1` | **纯 YAML 接入，不改代码** |
@@ -151,8 +161,11 @@ curl http://127.0.0.1:8891/api/v1/proxy
 
 ## 控制面 API
 
+浏览器打开 **`http://127.0.0.1:8891/`** 即是可视化控制台；以下 JSON API 供脚本/监控调用。
+
 | 方法 | 路径 | 说明 |
 |---|---|---|
+| GET | `/` | Web 控制台（可视化 dashboard） |
 | GET | `/healthz` | 存活探针 |
 | GET | `/api/v1/status` | 池状态、供应商、最近刷新/检查时间 |
 | GET | `/api/v1/proxies?limit=100` | 代理列表（不含密码） |

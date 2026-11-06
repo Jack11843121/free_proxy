@@ -1,6 +1,14 @@
 # 部署指南（含腾讯云）
 
-free_proxy 支持三种部署方式：**Docker**（推荐）、**systemd 托管**、**裸进程**。
+free_proxy 支持多种部署方式。**最快**：克隆后执行一键脚本。
+
+```bash
+git clone https://github.com/Jack11843121/free_proxy.git
+cd free_proxy
+sudo bash install.sh --systemd   # 装依赖 + 生成配置 + 注册并启动 systemd 服务
+```
+
+以下为各方式的详细步骤。
 
 ---
 

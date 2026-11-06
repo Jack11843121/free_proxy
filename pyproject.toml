@@ -26,5 +26,8 @@ free-proxy = "free_proxy.app:main"
 [tool.setuptools.packages.find]
 include = ["free_proxy*"]
 
+[tool.setuptools.package-data]
+free_proxy = ["web/*.html"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
