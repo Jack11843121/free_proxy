@@ -16,12 +16,19 @@ build/
 
 # 运行时产物
 config.yaml
+conf/config.yaml
+conf/free_proxy.env
 *.db
 *.sqlite3
 *.log
+
+# 运行时目录（保留占位文件）
+logs/*
+data/*
+!logs/.gitkeep
+!data/.gitkeep
 
 # 系统
 .DS_Store
 Thumbs.db
 node_modules/
-data/

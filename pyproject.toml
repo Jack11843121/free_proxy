@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "free-proxy"
-version = "1.0.0"
+version = "1.1.0"
 description = "多代理商聚合的本地 IP 代理网关：一个本地入口聚合品赞/快代理/巨量等所有 IP 代理供应商"
 readme = "README.md"
 requires-python = ">=3.9"

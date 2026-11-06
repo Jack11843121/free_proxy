@@ -34,7 +34,7 @@
 - ✅ **多种调度策略**：轮询 / 随机 / 最快 / 加权（按失败次数与延迟）。
 - ✅ **控制面 API + Web 控制面板**：自带可视化 dashboard（代理池状态 / 供应商 / 代理列表 / 一键刷新检查），零前端构建、随包内嵌；同时提供完整 JSON 控制面 API，可接监控告警。
 - ✅ **多机共享（可选）**：`store.backend=redis` 时多台服务器共用同一份代理池，`RPOPLPUSH` 环形公平轮转。
-- ✅ **零泄露安全**：真实密钥不硬编码，用 `${ENV}` 环境变量注入；`.gitignore` 已排除 `config.yaml`。
+- ✅ **零泄露安全**：真实密钥不硬编码，用 `${ENV}` 环境变量注入；`.gitignore` 已排除 `conf/config.yaml` 与 `conf/free_proxy.env`。
 
 ---
 
@@ -68,7 +68,7 @@
 ```bash
 git clone https://github.com/Jack11843121/free_proxy.git
 cd free_proxy
-bash install.sh                  # 建 venv + 装依赖 + 生成 config.yaml + 装 free-proxy 命令
+bash install.sh                  # 建 venv + 装依赖 + 生成 conf/config.yaml + 装 free-proxy 命令
 # Linux 想直接注册成 systemd 服务（需 root）：
 sudo bash install.sh --systemd
 ```
@@ -85,10 +85,10 @@ pip install .                    # 安装 free-proxy 命令行 + 依赖
 ### 2. 配置
 
 ```bash
-cp config.example.yaml config.yaml
+cp conf/config.example.yaml conf/config.yaml
 ```
 
-编辑 `config.yaml`，填上你的供应商凭证（密钥建议用环境变量 `${VAR}` 注入）。最小可跑示例——只接一个静态/自有代理：
+编辑 `conf/config.yaml`，填上你的供应商凭证（密钥建议用环境变量 `${VAR}` 注入）。最小可跑示例——只接一个静态/自有代理：
 
 ```yaml
 server:
@@ -100,14 +100,14 @@ providers:
       - "1.2.3.4:8080"
 ```
 
-接入品赞 / 快代理 / 巨量的完整写法见 [config.example.yaml](config.example.yaml) 与 [docs/PROVIDERS.md](docs/PROVIDERS.md)。
+接入品赞 / 快代理 / 巨量的完整写法见 [conf/config.example.yaml](conf/config.example.yaml) 与 [docs/PROVIDERS.md](docs/PROVIDERS.md)。
 
 ### 3. 启动
 
 ```bash
-free-proxy -c config.yaml         # 装了命令行脚本后
-# 或：python -m free_proxy -c config.yaml
-# 调试：python -m free_proxy -c config.yaml --check-once
+free-proxy -c conf/config.yaml    # 装了命令行脚本后
+# 或：python -m free_proxy -c conf/config.yaml
+# 调试：python -m free_proxy -c conf/config.yaml --check-once
 ```
 
 启动后浏览器打开 **http://127.0.0.1:8891** 即是 Web 控制面板（前向代理在 `127.0.0.1:8899`）。

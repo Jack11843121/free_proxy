@@ -8,7 +8,7 @@ services:
       # 控制面前置只绑定本机；若要公网访问改下面这行并自行加鉴权/Nginx
       - "127.0.0.1:8891:8891"
     volumes:
-      - ../config.yaml:/app/config.yaml:ro
+      - ../conf/config.yaml:/app/conf/config.yaml:ro
     # 用环境变量注入密钥（config.yaml 里写 ${PINZAN_NO} 等）
     env_file:
       - ./.env

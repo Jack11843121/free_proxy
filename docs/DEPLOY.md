@@ -16,8 +16,8 @@ sudo bash install.sh --systemd   # 装依赖 + 生成配置 + 注册并启动 sy
 
 ```bash
 # 1. 准备配置
-cp config.example.yaml config.yaml
-# 编辑 config.yaml，填好供应商凭证
+cp conf/config.example.yaml conf/config.yaml
+# 编辑 conf/config.yaml，填好供应商凭证
 
 # 2. 构建镜像
 docker build -t free_proxy .
@@ -27,7 +27,7 @@ docker run -d --name free_proxy \
   --restart=always \
   -p 8899:8899 \
   -p 127.0.0.1:8891:8891 \
-  -v $PWD/config.yaml:/app/config.yaml:ro \
+  -v $PWD/conf/config.yaml:/app/conf/config.yaml:ro \
   free_proxy
 
 # 或使用 compose（可选 Redis 共享池）
@@ -51,9 +51,9 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 
 # 3. 配置
-cp config.example.yaml config.yaml
-cp deploy/systemd/free_proxy.env.example /opt/free_proxy/free_proxy.env
-# 编辑 config.yaml 与 free_proxy.env（密钥）
+cp conf/config.example.yaml conf/config.yaml
+cp conf/free_proxy.env.example conf/free_proxy.env
+# 编辑 conf/config.yaml 与 conf/free_proxy.env（密钥）
 
 # 4. 注册 systemd 服务
 sudo cp deploy/systemd/free-proxy.service /etc/systemd/system/
@@ -72,8 +72,8 @@ sudo systemctl status free-proxy   # 查看日志：journalctl -u free-proxy -f
 cd free_proxy
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-python -m free_proxy -c config.yaml
-# 后台：nohup python -m free_proxy -c config.yaml > free_proxy.log 2>&1 &
+python -m free_proxy -c conf/config.yaml
+# 后台：nohup python -m free_proxy -c conf/config.yaml > logs/free_proxy.log 2>&1 &
 ```
 
 ---
@@ -90,7 +90,7 @@ python -m free_proxy -c config.yaml
    ```bash
    curl http://127.0.0.1:8891/healthz
    curl -x http://127.0.0.1:8899 https://httpbin.org/ip
-   tail -f /opt/free_proxy/free_proxy.log   # 或 journalctl -u free-proxy -f
+   tail -f /opt/free_proxy/logs/free_proxy.log   # 或 journalctl -u free-proxy -f
    ```
 
 ### 控制面要不要公网暴露？
@@ -105,7 +105,7 @@ python -m free_proxy -c config.yaml
 4 台机器想共用同一份 IP 池、公平轮换？用 Redis：
 
 1. 装一个 Redis（或云 Redis）；
-2. 每台机器 `config.yaml` 都改成：
+2. 每台机器 `conf/config.yaml` 都改成：
    ```yaml
    store:
      backend: redis
@@ -113,14 +113,14 @@ python -m free_proxy -c config.yaml
      redis_key: "free_proxy:pool"
    ```
 3. 各机器照常启动；每台仍是独立的前向代理 + 调度器，但读写同一个 Redis 列表，
-   `RPOPLPUSH` 保证多台机器**环形公平轮转**同一批 IP。
+   `LMOVE` 环形公平轮转保证多台机器共用同一批 IP；详见 [CLUSTER.md](CLUSTER.md)。
 
 ---
 
 ## 上线前检查清单
 
 - [ ] 供应商白名单已加本机公网出口 IP
-- [ ] `config.yaml` 里真实密钥已用 `${ENV}` 注入，未硬编码
+- [ ] `conf/config.yaml` 里真实密钥已用 `${ENV}` 注入，未硬编码
 - [ ] 控制面未对公网裸奔（仅内网监听 / 已加鉴权 / Nginx 反代）
 - [ ] 前向代理 `8899` 的访问来源已限制
 - [ ] `systemd` 已 `enable`，重启自启

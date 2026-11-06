@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import re
+import socket
 from typing import Optional, Tuple
 
 from .config import ServerConfig
@@ -17,6 +18,7 @@ from .util import parse_listen
 log = get_logger("server")
 
 MAX_HEAD = 65536
+RELAY_CHUNK = 256 * 1024  # 大缓冲中转，减少系统调用次数
 CONNECT_RE = re.compile(rb"^CONNECT\s+([^:\s]+):(\d+)\s+HTTP/1\.[01]$", re.I)
 REQUEST_RE = re.compile(rb"^(\w+)\s+(\S+)\s+HTTP/1\.[01]$", re.I)
 
@@ -47,7 +49,7 @@ async def _read_head(reader: asyncio.StreamReader, limit: int = MAX_HEAD) -> Opt
 async def _relay(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
     try:
         while True:
-            data = await reader.read(65536)
+            data = await reader.read(RELAY_CHUNK)
             if not data:
                 break
             writer.write(data)
@@ -58,6 +60,16 @@ async def _relay(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> 
         try:
             writer.close()
         except Exception:  # noqa: BLE001
+            pass
+
+
+def _set_nodelay(writer: asyncio.StreamWriter) -> None:
+    """关闭 Nagle 算法，降低小包（CONNECT 握手 / 短响应）的往返延迟。"""
+    sock = writer.get_extra_info("socket")
+    if sock is not None:
+        try:
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        except (OSError, AttributeError):
             pass
 
 
@@ -106,6 +118,7 @@ class ForwardProxyServer:
             await self._server.wait_closed()
 
     async def _handle(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        _set_nodelay(writer)
         try:
             head = await _read_head(reader)
             if not head:
@@ -133,10 +146,12 @@ class ForwardProxyServer:
 
     async def _connect_upstream(self, proxy: Proxy) -> Optional[Tuple[asyncio.StreamReader, asyncio.StreamWriter]]:
         try:
-            return await asyncio.wait_for(
+            reader, writer = await asyncio.wait_for(
                 asyncio.open_connection(proxy.ip, proxy.port),
                 timeout=self.cfg.connect_timeout,
             )
+            _set_nodelay(writer)
+            return reader, writer
         except Exception as e:  # noqa: BLE001
             log.debug("连接上游 %s 失败: %s", proxy.key, e)
             return None

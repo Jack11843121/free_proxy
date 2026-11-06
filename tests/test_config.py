@@ -42,7 +42,7 @@ def test_load_example_yaml(tmp_path, monkeypatch):
     import shutil
     from pathlib import Path
 
-    src = Path(__file__).resolve().parent.parent / "config.example.yaml"
+    src = Path(__file__).resolve().parent.parent / "conf" / "config.example.yaml"
     dst = tmp_path / "config.yaml"
     shutil.copy(src, dst)
     cfg = Config.load(str(dst))

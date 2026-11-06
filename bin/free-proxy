@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# free_proxy 管理脚本
+# 约定目录结构（相对本脚本上级目录）：
+#   conf/config.yaml  conf/free_proxy.env  logs/free_proxy.log  data/free_proxy.pid  VERSION
+#
+# 用法： bin/free-proxy {start|stop|restart|status|version|logs|check-once}
+set -u
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+CONF="$ROOT/conf/config.yaml"
+ENV="$ROOT/conf/free_proxy.env"
+LOGDIR="$ROOT/logs"
+LOGFILE="$LOGDIR/free_proxy.log"
+PIDFILE="$ROOT/data/free_proxy.pid"
+
+# 优先用命令行脚本，否则用 venv 的 python -m
+if [ -x "$ROOT/.venv/bin/free-proxy" ]; then
+  run() { "$ROOT/.venv/bin/free-proxy" "$@"; }
+else
+  run() { "$ROOT/.venv/bin/python" -m free_proxy "$@"; }
+fi
+
+_is_running() {
+  [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null
+}
+
+_start() {
+  if _is_running; then
+    echo "free_proxy 已在运行（pid $(cat "$PIDFILE")）"; return 0
+  fi
+  mkdir -p "$LOGDIR" "$(dirname "$PIDFILE")"
+  if [ -f "$ENV" ]; then set -a; . "$ENV"; set +a; fi
+  # 直接后台启动，日志落到文件
+  ( if [ -x "$ROOT/.venv/bin/free-proxy" ]; then "$ROOT/.venv/bin/free-proxy" -c "$CONF"; \
+      else "$ROOT/.venv/bin/python" -m free_proxy -c "$CONF"; fi ) >> "$LOGFILE" 2>&1 &
+  echo $! > "$PIDFILE"
+  sleep 1
+  if _is_running; then echo "free_proxy 已启动（pid $(cat "$PIDFILE")，日志 $LOGFILE）";
+  else echo "启动失败，查看 $LOGFILE"; return 1; fi
+}
+
+_stop() {
+  if ! _is_running; then echo "free_proxy 未在运行"; return 0; fi
+  kill "$(cat "$PIDFILE")" 2>/dev/null
+  sleep 1
+  kill -9 "$(cat "$PIDFILE")" 2>/dev/null || true
+  rm -f "$PIDFILE"
+  echo "free_proxy 已停止"
+}
+
+_status() {
+  if _is_running; then
+    echo "运行中（pid $(cat "$PIDFILE")）"
+    curl -s --max-time 3 "http://127.0.0.1:8891/healthz" && echo || echo "（控制面未响应）"
+  else
+    echo "未运行"
+  fi
+}
+
+_version() { [ -f "$ROOT/VERSION" ] && cat "$ROOT/VERSION" || echo "unknown"; }
+
+_logs() { tail -"${1:-50}" "$LOGFILE" 2>/dev/null || echo "无日志文件 $LOGFILE"; }
+
+_check_once() {
+  if [ -f "$ENV" ]; then set -a; . "$ENV"; set +a; fi
+  run -c "$CONF" --check-once
+}
+
+case "${1:-status}" in
+  start) _start ;;
+  stop) _stop ;;
+  restart) _stop; _start ;;
+  status) _status ;;
+  version) _version ;;
+  logs) _logs "${2:-50}" ;;
+  check-once) _check_once ;;
+  *) echo "用法: $0 {start|stop|restart|status|version|logs|check-once}"; exit 1 ;;
+esac
