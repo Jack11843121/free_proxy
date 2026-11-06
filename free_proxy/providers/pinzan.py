@@ -19,8 +19,10 @@ class PinzanProvider(BaseProvider):
 
     async def fetch(self, session: aiohttp.ClientSession) -> FetchResult:
         cfg = self.config
+        # YAML 1.1 会把未加引号的 `no:` 解析成布尔 False（键名变成 False 而不是字符串 "no"），这里做兼容
+        order_no = cfg.get("no") or cfg.get(False) or ""
         params = {
-            "no": cfg.get("no", ""),
+            "no": str(order_no),
             "secret": cfg.get("secret", ""),
             "num": cfg.get("num", 5),
             "format": "json",

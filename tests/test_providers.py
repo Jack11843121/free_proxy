@@ -68,6 +68,17 @@ async def test_pinzan_auth_mode_per_ip_cred(monkeypatch):
     assert (p.user, p.password) == ("ipu", "ipp")
 
 
+async def test_pinzan_yaml_no_key_fallback(monkeypatch):
+    # YAML 1.1 会把未加引号的 `no:` 解析成布尔 False 键，适配器需兼容
+    body = '{"code":0,"data":{"list":[{"ip":"1.2.3.4","port":8080}]}}'
+    fake = FakeHTTP(body)
+    _patch(monkeypatch, "free_proxy.providers.pinzan.http_get", fake)
+    prov = PinzanProvider({False: "N1", "name": "pz", "secret": "S1", "num": 1})
+    res = await prov.fetch(None)
+    assert fake.calls[0]["params"]["no"] == "N1"
+    assert [(p.ip, p.port) for p in res.proxies] == [("1.2.3.4", 8080)]
+
+
 async def test_kuaidaili_token(monkeypatch):
     body = '{"code":0,"data":{"count":1,"proxy_list":["1.2.3.4:8080"]}}'
     fake = FakeHTTP(body)

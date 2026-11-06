@@ -25,7 +25,7 @@
 - name: pinzan
   type: pinzan
   enabled: true
-  no: "${PINZAN_NO}"              # 套餐/业务编号
+  "no": "${PINZAN_NO}"            # 套餐/业务编号（YAML 里 no 必须加引号，否则被当布尔 False）
   secret: "${PINZAN_SECRET}"      # 套餐提取密钥
   num: 5                          # 每次提取数量
   mode: auth                      # auth=账号密码鉴权 | whitelist=白名单鉴权
