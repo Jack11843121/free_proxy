@@ -33,7 +33,8 @@
 - ✅ **自愈代理池**：定时健康检查测延时，连续失败自动判死淘汰，过期 IP 自动清理，池不足自动补货。
 - ✅ **多种调度策略**：轮询 / 随机 / 最快 / 加权（按失败次数与延迟）。
 - ✅ **控制面 API + Web 控制面板**：自带可视化 dashboard（代理池状态 / 供应商 / 代理列表 / 一键刷新检查），零前端构建、随包内嵌；同时提供完整 JSON 控制面 API，可接监控告警。
-- ✅ **多机共享（可选）**：`store.backend=redis` 时多台服务器共用同一份代理池，`RPOPLPUSH` 环形公平轮转。
+- ✅ **多机共享（对等集群）**：`store.backend=redis` 时多台服务器共用同一份代理池、环形公平轮转，无主从、可任意加节点，详见 [docs/CLUSTER.md](docs/CLUSTER.md)。
+- ✅ **性能实测不拉胯**：字节级中继 + TCP_NODELAY + 大缓冲，loopback 实测 ~1 万 req/s、隧道 ~1.8 GB/s，附基准工具 [scripts/bench.py](scripts/bench.py) 与 [docs/PERFORMANCE.md](docs/PERFORMANCE.md)。
 - ✅ **零泄露安全**：真实密钥不硬编码，用 `${ENV}` 环境变量注入；`.gitignore` 已排除 `conf/config.yaml` 与 `conf/free_proxy.env`。
 
 ---
@@ -180,7 +181,21 @@ curl http://127.0.0.1:8891/api/v1/proxy
 
 ## 部署
 
-支持 Docker、`systemd`、裸进程三种方式，含腾讯云部署步骤与上线前检查清单，见 [docs/DEPLOY.md](docs/DEPLOY.md)。
+支持 Docker、`systemd`、裸进程三种方式，含腾讯云部署步骤与上线前检查清单，见 [docs/DEPLOY.md](docs/DEPLOY.md)。多机集群见 [docs/CLUSTER.md](docs/CLUSTER.md)。
+
+---
+
+## 文档目录
+
+| 文档 | 内容 |
+|---|---|
+| [docs/PHILOSOPHY.md](docs/PHILOSOPHY.md) | 设计理念与「供应商无关 / 自愈 / 透明 / 可观测 / 可扩展」五原则 |
+| [docs/PROVIDERS.md](docs/PROVIDERS.md) | 各家供应商接入详解 + generic 通用模板 + 新增适配器方法 |
+| [docs/DEPLOY.md](docs/DEPLOY.md) | Docker / systemd / 裸进程 / 腾讯云 / 多机集群 |
+| [docs/CLUSTER.md](docs/CLUSTER.md) | Redis 对等集群架构与部署 |
+| [docs/PERFORMANCE.md](docs/PERFORMANCE.md) | 性能基准结论 + 压测方法 + 调优要点 |
+| [docs/API.md](docs/API.md) | 控制面 JSON API 参考 |
+| [CHANGELOG.md](CHANGELOG.md) | 版本记录 |
 
 ---
 
