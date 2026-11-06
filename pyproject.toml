@@ -5,12 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "free-proxy"
 version = "1.1.0"
-description = "多代理商聚合的本地 IP 代理网关：一个本地入口聚合品赞/快代理/巨量等所有 IP 代理供应商"
+description = "本地 IP 代理聚合网关：品赞/快代理/巨量/16云(亿牛云)/花生等第三方代理 IP 统一接入，自动健康检查、智能轮换、自动补货，自带 Web 控制台与 Redis 多机集群（Python, MIT）"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [{ name = "free_proxy contributors" }]
-keywords = ["proxy", "proxy-pool", "http-proxy", "ip-proxy", "kuaidaili", "juliang", "pinzan"]
+keywords = ["proxy", "proxy-pool", "ip-proxy", "http-proxy", "socks5-proxy", "proxy-gateway", "crawler", "scraper", "rpa", "scrapy", "requests", "aiohttp", "kuaidaili", "juliang", "pinzan", "yiniuyun", "16yun", "huashengdaili", "代理池", "代理IP", "爬虫代理", "IP代理商", "隧道代理"]
 dependencies = [
     "aiohttp>=3.8,<4.0",
     "PyYAML>=6.0",

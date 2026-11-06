@@ -1,5 +1,7 @@
 # free_proxy
 
+> An open-source, self-hosted local **IP proxy gateway** that aggregates third-party proxy-IP providers — Kuaidaili(快代理), Juliang(巨量), Pinzan/ipzan(品赞), 16yun(亿牛云), Huasheng(花生) and more — into one stable HTTP/SOCKS proxy endpoint with auto health-checking, rotation, refill and a web console.
+
 > **当你的爬虫 / 数据采集 / RPA 需要「走代理 IP 访问目标」时**，通常要自己对接第三方代理 IP 供应商——各家接口、鉴权、返回格式都不一样，还得自己处理 IP 过期、被封、切换。free_proxy 把这些全收敛成一个**本地 HTTP 代理端口**：内置品赞、快代理、巨量、16云/亿牛云、花生等适配器，自动健康检查 / 智能轮换 / 自动补货 / 去重淘汰，并带 Web 控制台与 Redis 多机集群。
 >
 > **只需编辑 `conf/config.yaml` 填好供应商凭证并启动，把你的业务代理地址指向 `127.0.0.1:8899` 即可直接使用。**
@@ -205,13 +207,35 @@ curl http://127.0.0.1:8891/api/v1/proxy
 
 ---
 
+## 适用场景
+
+- 🕷️ **爬虫 / 数据采集**：`Scrapy`、`requests`、`aiohttp`、`httpx` 直接挂代理出口，自动换 IP 防封。
+- 🤖 **RPA / 自动化脚本**：浏览器或自动化工具统一走本地代理，屏蔽供应商差异。
+- 📊 **价格监控 / 舆情监测 / SEO 排名 / 竞品分析**：需要大量出口 IP 稳定轮换。
+- 🏢 **企业统一代理出口**：多供应商聚合 + Redis 多机集群，团队共享同一代理池。
+
+---
+
+## 常见问题（FAQ）
+
+- **支持哪些代理商？** 内置品赞、快代理、巨量、16云/亿牛云、花生；任意 HTTP 提取类供应商可用 `generic` 模板纯 YAML 接入；自有 IP / 隧道代理用 `static`。
+- **怎么接入新代理商？** 九成场景零代码：`conf/config.yaml` 加一段 `generic` 配置（URL 模板 + 返回解析）即可，见 [docs/PROVIDERS.md](docs/PROVIDERS.md)。
+- **支持 SOCKS5 吗？** 本地出口是 HTTP/HTTPS（含 CONNECT 隧道）；品赞/巨量等可通过 `protocol` 参数取 SOCKS 上游。需要 SOCKS 出口可扩展。
+- **性能怎么样？** loopback 实测 ~1 万 req/s、隧道 1.8 GB/s，网关自身开销极低；真实吞吐取决于你的代理 IP，见 [docs/PERFORMANCE.md](docs/PERFORMANCE.md)。
+- **多台服务器能共享吗？** 能，`store.backend=redis` 组成对等集群、公平轮转，见 [docs/CLUSTER.md](docs/CLUSTER.md)。
+- **部署复杂吗？** 不复杂：`git clone` + `bash install.sh`（或 `sudo bash install.sh --systemd`），见 [docs/DEPLOY.md](docs/DEPLOY.md)。
+- **要备案 / 域名吗？** 不需要，本地或服务器一台机器 + IP:端口即可跑。
+
+---
+
 ## 定制开发 / 联系
 
 本项目 MIT 开源、永久免费使用。
 
 如需**定制开发**（新增特殊代理商适配、隧道/独享/海外 IP、私有化内网部署、多机集群调度、与爬虫/RPA 框架集成等），或需要**部署 + 测试 + IP 代理使用指导**，欢迎联系：
 
-📧 **11843121@qq.com**
+📞 **电话：15919897624**
+📧 **邮箱：1184311@qq.com**
 
 > 可提供：开发、部署、测试、IP 代理指导等定制业务，费用很低。
 
