@@ -25,7 +25,7 @@ class PinzanProvider(BaseProvider):
             "num": cfg.get("num", 5),
             "format": "json",
         }
-        for k in ("mode", "protocol", "pool", "minute", "area"):
+        for k in ("mode", "protocol", "pool", "minute", "area", "repeat"):
             if cfg.get(k) is not None:
                 params[k] = cfg[k]
 
@@ -39,12 +39,22 @@ class PinzanProvider(BaseProvider):
         if data.get("code") != 0:
             raise FetchError(f"品赞错误 code={data.get('code')} msg={data.get('msg')} 原始={text[:200]}")
 
+        d = data.get("data") or {}
+        # auth 模式：账号密码可能出现在顶层，或每条 IP 里，或用配置里的固定账密
+        top_user = d.get("user") or d.get("username") or d.get("account")
+        top_pwd = d.get("password") or d.get("pwd")
+
         proxies = []
-        for item in (data.get("data") or {}).get("list") or []:
+        for item in d.get("list") or []:
             ip = item.get("ip") or item.get("host")
             port = item.get("port")
             if ip and port:
-                proxies.append(RawProxy(ip=str(ip), port=int(port)))
+                proxies.append(RawProxy(
+                    ip=str(ip),
+                    port=int(port),
+                    user=item.get("user") or item.get("username") or top_user or cfg.get("auth_user"),
+                    password=item.get("password") or item.get("pwd") or top_pwd or cfg.get("auth_password"),
+                ))
                 if len(proxies) >= int(cfg.get("num", 5)):
                     break
         return FetchResult(provider=self.name, proxies=proxies, raw=text)

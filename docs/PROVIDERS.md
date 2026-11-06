@@ -28,14 +28,19 @@
   no: "${PINZAN_NO}"              # 套餐/业务编号
   secret: "${PINZAN_SECRET}"      # 套餐提取密钥
   num: 5                          # 每次提取数量
-  mode: whitelist                 # 白名单模式
+  mode: auth                      # auth=账号密码鉴权 | whitelist=白名单鉴权
+  auth_user: "${PINZAN_USER}"     # mode=auth 时：套餐账号
+  auth_password: "${PINZAN_PWD}"  # mode=auth 时：套餐密码
   # 可选：
   # pool: quality                 # 优质池
   # minute: 5                     # IP 有效时长(分钟)：1/3/5/10/15/30
-  # area: "440300"                # 地区筛选（行政区划码）
+  # repeat: 1                     # 是否允许重复提取
+  # area: "440300"               # 地区筛选（行政区划码）
 ```
 
 签名：品赞**无签名算法**，`no`+`secret` 直接作为 query 参数传输。
+
+> ⚠️ **白名单**：无论 `mode` 是 auth 还是 whitelist，品赞都要求**调用提取接口的机器**（即运行 free_proxy 的服务器）公网 IP 先加入套餐白名单，否则返回「请先将 xx.xx.xx.xx 加入到白名单」。`mode=auth` 决定的是「提取出来的代理 IP 用账号密码连接」，`mode=whitelist` 则是「提取出来的代理 IP 用白名单直接连接」。
 
 ---
 

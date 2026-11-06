@@ -45,6 +45,29 @@ async def test_pinzan_error(monkeypatch):
         await PinzanProvider({"name": "pz"}).fetch(None)
 
 
+async def test_pinzan_auth_mode_fixed_cred(monkeypatch):
+    # mode=auth：套餐固定账密，通过 auth_user/auth_password 下发
+    body = '{"code":0,"data":{"list":[{"ip":"1.2.3.4","port":8080}]}}'
+    fake = FakeHTTP(body)
+    _patch(monkeypatch, "free_proxy.providers.pinzan.http_get", fake)
+    prov = PinzanProvider({"name": "pz", "no": "N1", "secret": "S1", "mode": "auth",
+                           "auth_user": "u1", "auth_password": "p1", "num": 1})
+    res = await prov.fetch(None)
+    p = res.proxies[0]
+    assert (p.ip, p.port, p.user, p.password) == ("1.2.3.4", 8080, "u1", "p1")
+
+
+async def test_pinzan_auth_mode_per_ip_cred(monkeypatch):
+    # 响应里每条自带账密时优先取响应
+    body = '{"code":0,"data":{"list":[{"ip":"1.2.3.4","port":8080,"user":"ipu","password":"ipp"}]}}'
+    fake = FakeHTTP(body)
+    _patch(monkeypatch, "free_proxy.providers.pinzan.http_get", fake)
+    prov = PinzanProvider({"name": "pz", "no": "N1", "secret": "S1", "mode": "auth", "num": 1})
+    res = await prov.fetch(None)
+    p = res.proxies[0]
+    assert (p.user, p.password) == ("ipu", "ipp")
+
+
 async def test_kuaidaili_token(monkeypatch):
     body = '{"code":0,"data":{"count":1,"proxy_list":["1.2.3.4:8080"]}}'
     fake = FakeHTTP(body)
