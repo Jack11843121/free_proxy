@@ -42,8 +42,11 @@ class JulangProvider(BaseProvider):
             raise FetchError(f"巨量错误 code={data.get('code')} msg={data.get('msg')} 原始={text[:200]}")
 
         proxies = []
+        # pt: 1=HTTP 2=SOCK(SOCKS5)
+        scheme = "socks5" if str(cfg.get("pt", 1)) == "2" else "http"
         for e in (data.get("data") or {}).get("proxy_list") or []:
             p = parse_entry(str(e))
             if p:
+                p.scheme = scheme
                 proxies.append(p)
         return FetchResult(provider=self.name, proxies=proxies, raw=text)

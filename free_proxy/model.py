@@ -13,6 +13,7 @@ class Proxy:
     ip: str
     port: int
     provider: str = ""
+    scheme: str = "http"  # http | socks5（上游代理协议）
     user: Optional[str] = None
     password: Optional[str] = None
     region: Optional[str] = None
@@ -52,6 +53,7 @@ class Proxy:
             "ip": self.ip,
             "port": self.port,
             "provider": self.provider,
+            "scheme": self.scheme,
             "user": self.user,
             "region": self.region,
             "expire_at": self.expire_at,
@@ -67,6 +69,7 @@ class Proxy:
             ip=str(d["ip"]),
             port=int(d["port"]),
             provider=d.get("provider", ""),
+            scheme=d.get("scheme", "http"),
             user=d.get("user"),
             password=d.get("password"),
             region=d.get("region"),

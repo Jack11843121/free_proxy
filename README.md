@@ -33,7 +33,7 @@
 ## 功能特性
 
 - ✅ **供应商无关**：品赞（ipzan）、快代理（kuaidaili）、巨量（juliangip）已内置；任意其他 HTTP 提取类代理商可用「通用模板」**纯配置接入、零改代码**。
-- ✅ **真正的代理网关**：支持标准 HTTP 前向代理 + HTTPS `CONNECT` 隧道，字节级透明中继，`requests` / `aiohttp` / `curl` / 浏览器 / RPA 全部零改动。
+- ✅ **真正的代理网关**：支持标准 HTTP 前向代理 + HTTPS `CONNECT` 隧道 + **SOCKS5（RFC1928/1929，含用户名密码认证）**，字节级透明中继，`requests` / `aiohttp` / `curl` / 浏览器 / RPA 全部零改动。
 - ✅ **自愈代理池**：定时健康检查测延时，连续失败自动判死淘汰，过期 IP 自动清理，池不足自动补货。
 - ✅ **多种调度策略**：轮询 / 随机 / 最快 / 加权（按失败次数与延迟）。
 - ✅ **控制面 API + Web 控制面板**：自带可视化 dashboard（代理池状态 / 供应商 / 代理列表 / 一键刷新检查），零前端构建、随包内嵌；同时提供完整 JSON 控制面 API，可接监控告警。
@@ -122,8 +122,11 @@ free-proxy -c conf/config.yaml    # 装了命令行脚本后
 ### 4. 业务代码接入
 
 ```bash
-# curl 走代理
+# curl 走 HTTP 代理
 curl -x http://127.0.0.1:8899 https://httpbin.org/ip
+
+# curl 走 SOCKS5（需 socks 支持，配 socks5h://127.0.0.1:8898）
+curl --socks5-hostname 127.0.0.1:8898 https://httpbin.org/ip
 ```
 
 ```python

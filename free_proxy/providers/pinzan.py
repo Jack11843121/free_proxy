@@ -42,6 +42,8 @@ class PinzanProvider(BaseProvider):
             raise FetchError(f"品赞错误 code={data.get('code')} msg={data.get('msg')} 原始={text[:200]}")
 
         d = data.get("data") or {}
+        # protocol: 1=HTTP 2=SOCKS5
+        scheme = "socks5" if str(cfg.get("protocol", 1)) == "2" else "http"
         # auth 模式：账号密码可能出现在顶层，或每条 IP 里，或用配置里的固定账密
         top_user = d.get("user") or d.get("username") or d.get("account")
         top_pwd = d.get("password") or d.get("pwd")
@@ -54,6 +56,7 @@ class PinzanProvider(BaseProvider):
                 proxies.append(RawProxy(
                     ip=str(ip),
                     port=int(port),
+                    scheme=scheme,
                     user=item.get("user") or item.get("username") or top_user or cfg.get("auth_user"),
                     password=item.get("password") or item.get("pwd") or top_pwd or cfg.get("auth_password"),
                 ))

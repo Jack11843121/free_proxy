@@ -18,6 +18,7 @@ class RawProxy:
 
     ip: str
     port: int
+    scheme: str = "http"  # http | socks5
     user: Optional[str] = None
     password: Optional[str] = None
     region: Optional[str] = None

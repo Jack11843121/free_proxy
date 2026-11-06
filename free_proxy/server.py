@@ -8,11 +8,13 @@ import asyncio
 import base64
 import re
 import socket
-from typing import Optional, Tuple
+import urllib.parse
+from typing import Optional
 
 from .config import ServerConfig
 from .logger import get_logger
 from .model import Proxy
+from .tunnel import open_socks5_tunnel, open_tcp, open_tunnel
 from .util import parse_listen
 
 log = get_logger("server")
@@ -97,6 +99,20 @@ def _rehead(head: bytes, method: bytes, target: bytes, proxy: Proxy) -> bytes:
     return b"\r\n".join(parts) + b"\r\n\r\n"
 
 
+def _origin_rehead(head: bytes, method: bytes, path: bytes) -> bytes:
+    """重写首行为 origin-form（用于 SOCKS5 上游：先 CONNECT 后走普通 HTTP）。"""
+    core = head[:-4]
+    lines = core.split(b"\r\n")
+    ver = lines[0].split(b" ", 2)[-1] if len(lines[0].split(b" ", 2)) == 3 else b"HTTP/1.1"
+    parts = [method + b" " + path + b" " + ver]
+    for h in lines[1:]:
+        lh = h.lower()
+        if lh.startswith(b"proxy-authorization:") or lh.startswith(b"proxy-connection:"):
+            continue
+        parts.append(h)
+    return b"\r\n".join(parts) + b"\r\n\r\n"
+
+
 class ForwardProxyServer:
     def __init__(self, cfg: ServerConfig, pool):
         self.cfg = cfg
@@ -123,19 +139,15 @@ class ForwardProxyServer:
             head = await _read_head(reader)
             if not head:
                 return
-            proxy = self.pool.pick()
-            if proxy is None:
-                await _reply(writer, 503, "free_proxy: no available proxy in pool")
-                return
             first_line = head.split(b"\r\n", 1)[0]
             if first_line.upper().startswith(b"CONNECT"):
                 m = CONNECT_RE.match(first_line)
                 if not m:
                     await _reply(writer, 400, "bad CONNECT request line")
                     return
-                await self._tunnel(reader, writer, m.group(1).decode(), int(m.group(2)), proxy)
+                await self._tunnel(reader, writer, m.group(1).decode(), int(m.group(2)))
             else:
-                await self._forward_http(reader, writer, head, first_line, proxy)
+                await self._forward_http(reader, writer, head, first_line)
         except Exception as e:  # noqa: BLE001
             log.debug("连接处理异常: %s", e)
         finally:
@@ -144,46 +156,32 @@ class ForwardProxyServer:
             except Exception:  # noqa: BLE001
                 pass
 
-    async def _connect_upstream(self, proxy: Proxy) -> Optional[Tuple[asyncio.StreamReader, asyncio.StreamWriter]]:
-        try:
-            reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(proxy.ip, proxy.port),
-                timeout=self.cfg.connect_timeout,
-            )
-            _set_nodelay(writer)
-            return reader, writer
-        except Exception as e:  # noqa: BLE001
-            log.debug("连接上游 %s 失败: %s", proxy.key, e)
-            return None
-
-    async def _tunnel(self, reader, writer, host: str, port: int, proxy: Proxy) -> None:
-        conn = await self._connect_upstream(proxy)
+    async def _tunnel(self, reader, writer, host: str, port: int) -> None:
+        """CONNECT 隧道：带 failover 换上游代理（HTTP CONNECT / SOCKS5 CONNECT）。"""
+        conn = None
+        attempted = False
+        for _ in range(max(1, self.cfg.retry)):
+            proxy = self.pool.pick()
+            if proxy is None:
+                break
+            attempted = True
+            try:
+                conn = await open_tunnel(proxy, host, port, self.cfg.connect_timeout)
+                break
+            except Exception as e:  # noqa: BLE001
+                log.debug("上游隧道失败 %s: %s", proxy.key, e)
+                continue
         if conn is None:
-            await _reply(writer, 502, f"free_proxy: cannot reach upstream {proxy.key}")
+            await _reply(writer, 502 if attempted else 503,
+                         "free_proxy: no working upstream proxy" if attempted else "free_proxy: no available proxy in pool")
             return
         up_reader, up_writer = conn
-
-        req = f"CONNECT {host}:{port} HTTP/1.1\r\nHost: {host}:{port}\r\n".encode() + _auth_header(proxy) + b"\r\n"
-        up_writer.write(req)
-        await up_writer.drain()
-
-        up_head = await _read_head(up_reader)
-        if up_head is None:
-            up_writer.close()
-            await _reply(writer, 502, "free_proxy: upstream tunnel failed")
-            return
-        status_line = up_head.split(b"\r\n", 1)[0]
-        if b" 200 " not in status_line and not status_line.startswith(b"HTTP/1.1 200"):
-            writer.write(up_head)  # 把上游错误转发给客户端
-            await writer.drain()
-            up_writer.close()
-            return
-
         writer.write(b"HTTP/1.1 200 Connection Established\r\n\r\n")
         await writer.drain()
         await asyncio.gather(_relay(reader, up_writer), _relay(up_reader, writer))
 
-    async def _forward_http(self, reader, writer, head: bytes, first_line: bytes, proxy: Proxy) -> None:
+    async def _forward_http(self, reader, writer, head: bytes, first_line: bytes) -> None:
+        """普通 HTTP 前向：按上游协议转发（HTTP 绝对 URI / SOCKS5 先 CONNECT 再 origin-form）。"""
         m = REQUEST_RE.match(first_line.rstrip(b"\r\n"))
         if not m:
             await _reply(writer, 400, "bad request line")
@@ -199,14 +197,41 @@ class ForwardProxyServer:
                 return
             target = b"http://" + host + target
 
-        conn = await self._connect_upstream(proxy)
+        u = urllib.parse.urlsplit(target.decode("latin-1"))
+        host = u.hostname
+        port = u.port or 80
+        if not host:
+            await _reply(writer, 400, "bad absolute URI")
+            return
+        origin = (u.path or "/") + (("?" + u.query) if u.query else "")
+        origin_bytes = origin.encode("latin-1")
+
+        conn = None
+        attempted = False
+        for _ in range(max(1, self.cfg.retry)):
+            proxy = self.pool.pick()
+            if proxy is None:
+                break
+            attempted = True
+            try:
+                if proxy.scheme == "socks5":
+                    up_reader, up_writer = await open_socks5_tunnel(proxy, host, port, self.cfg.connect_timeout)
+                    out = _origin_rehead(head, method, origin_bytes)
+                else:
+                    up_reader, up_writer = await open_tcp(proxy, self.cfg.connect_timeout)
+                    out = _rehead(head, method, target, proxy)
+                up_writer.write(out)
+                await up_writer.drain()
+                conn = (up_reader, up_writer)
+                break
+            except Exception as e:  # noqa: BLE001
+                log.debug("上游转发失败 %s: %s", proxy.key, e)
+                continue
         if conn is None:
-            await _reply(writer, 502, f"free_proxy: cannot reach upstream {proxy.key}")
+            await _reply(writer, 502 if attempted else 503,
+                         "free_proxy: no working upstream proxy" if attempted else "free_proxy: no available proxy in pool")
             return
         up_reader, up_writer = conn
-
-        up_writer.write(_rehead(head, method, target, proxy))
-        await up_writer.drain()
         await asyncio.gather(_relay(reader, up_writer), _relay(up_reader, writer))
 
     @staticmethod

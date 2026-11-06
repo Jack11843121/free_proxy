@@ -15,6 +15,7 @@ from .logger import get_logger, setup_logging
 from .pool import create_pool
 from .scheduler import Scheduler
 from .server import ForwardProxyServer
+from .socks5 import Socks5Server
 
 log = get_logger("app")
 
@@ -47,6 +48,7 @@ async def _run(cfg: Config, check_once: bool = False) -> None:
     scheduler = Scheduler(cfg, pool, session)
     proxy_server = ForwardProxyServer(cfg.server, pool)
     control = ControlAPI(cfg.control, pool, scheduler)
+    socks5_server = Socks5Server(cfg.server, pool) if cfg.server.socks5_listen else None
 
     if check_once:
         await scheduler.refresh_once()
@@ -57,6 +59,8 @@ async def _run(cfg: Config, check_once: bool = False) -> None:
 
     await proxy_server.start()
     await control.start()
+    if socks5_server is not None:
+        await socks5_server.start()
     sched_task = asyncio.create_task(scheduler.run())
 
     stop = asyncio.Event()
@@ -65,10 +69,9 @@ async def _run(cfg: Config, check_once: bool = False) -> None:
         with contextlib.suppress(NotImplementedError, RuntimeError):
             loop.add_signal_handler(sig, stop.set)
 
-    log.info(
-        "free_proxy v%s 已启动：前向代理=%s 控制面=%s",
-        __version__, cfg.server.listen, cfg.control.listen,
-    )
+    endpoints = f"前向代理={cfg.server.listen}"
+    endpoints += f" SOCKS5={cfg.server.socks5_listen}" if socks5_server is not None else ""
+    log.info("free_proxy v%s 已启动：%s 控制面=%s", __version__, endpoints, cfg.control.listen)
     try:
         await stop.wait()
     finally:
@@ -77,6 +80,8 @@ async def _run(cfg: Config, check_once: bool = False) -> None:
         with contextlib.suppress(asyncio.CancelledError):
             await sched_task
         await proxy_server.close()
+        if socks5_server is not None:
+            await socks5_server.close()
         await control.close()
         await session.close()
         log.info("已退出")

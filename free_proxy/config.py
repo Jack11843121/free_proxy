@@ -29,6 +29,11 @@ class ServerConfig:
     listen: str = "0.0.0.0:8899"
     backlog: int = 256
     connect_timeout: float = 10.0
+    retry: int = 3  # 上游连接失败时，同一次会话最多尝试换几个代理
+    # SOCKS5 本地监听（留空=不启用）
+    socks5_listen: str = ""      # 例："0.0.0.0:8898"
+    socks5_user: str = ""        # 留空=无认证；填了=用户名密码认证(RFC1929)
+    socks5_password: str = ""
 
 
 @dataclass

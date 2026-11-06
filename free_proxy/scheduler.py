@@ -49,6 +49,7 @@ class Scheduler:
                         expire = time.time() + self.cfg.pool.ttl
                     self.pool.add(Proxy(
                         ip=raw.ip, port=raw.port, provider=provider.name,
+                        scheme=raw.scheme,
                         user=raw.user, password=raw.password, region=raw.region,
                         expire_at=expire,
                     ))
