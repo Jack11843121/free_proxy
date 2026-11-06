@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+.eggs/
+*.egg-info/
+dist/
+build/
+
+# 测试 / 工具
+.pytest_cache/
+.uv-cache/
+.mypy_cache/
+.ruff_cache/
+
+# 运行时产物
+config.yaml
+*.db
+*.sqlite3
+*.log
+
+# 系统
+.DS_Store
+Thumbs.db
+node_modules/
+data/

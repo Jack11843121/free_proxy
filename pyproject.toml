@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "free-proxy"
+version = "1.0.0"
+description = "多代理商聚合的本地 IP 代理网关：一个本地入口聚合品赞/快代理/巨量等所有 IP 代理供应商"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "free_proxy contributors" }]
+keywords = ["proxy", "proxy-pool", "http-proxy", "ip-proxy", "kuaidaili", "juliang", "pinzan"]
+dependencies = [
+    "aiohttp>=3.8,<4.0",
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+redis = ["redis>=4.5"]
+dev = ["pytest>=7.0", "pytest-asyncio>=0.21"]
+
+[project.scripts]
+free-proxy = "free_proxy.app:main"
+
+[tool.setuptools.packages.find]
+include = ["free_proxy*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

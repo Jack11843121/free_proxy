@@ -1,0 +1,28 @@
+services:
+  free_proxy:
+    build: ..
+    container_name: free_proxy
+    restart: always
+    ports:
+      - "8899:8899"
+      # 控制面前置只绑定本机；若要公网访问改下面这行并自行加鉴权/Nginx
+      - "127.0.0.1:8891:8891"
+    volumes:
+      - ../config.yaml:/app/config.yaml:ro
+    # 用环境变量注入密钥（config.yaml 里写 ${PINZAN_NO} 等）
+    env_file:
+      - ./.env
+
+  # 可选：多机共享代理池时启用 Redis
+  redis:
+    image: redis:7-alpine
+    container_name: free_proxy_redis
+    restart: always
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    ports:
+      - "127.0.0.1:6379:6379"
+
+volumes:
+  redis_data:
