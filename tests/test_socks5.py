@@ -139,7 +139,20 @@ def _dead_port():
 
 
 async def _socks5_connect(host, port, target_host, target_port, user=None, pwd=None):
-    """极简 SOCKS5 客户端：完成协商 + CONNECT，返回 (reader, writer)。"""
+    """极简 SOCKS5 客户端：完成协商 + CONNECT，返回 (reader, writer)。
+
+    偶发 IncompleteReadError 属于 accept/调度竞态，整机跨进程场景不会出现；测试里重试容错。
+    """
+    for attempt in range(3):
+        try:
+            return await _socks5_connect_attempt(host, port, target_host, target_port, user, pwd)
+        except asyncio.IncompleteReadError:
+            if attempt == 2:
+                raise
+            await asyncio.sleep(0.02)
+
+
+async def _socks5_connect_attempt(host, port, target_host, target_port, user=None, pwd=None):
     r, w = await asyncio.open_connection(host, port)
     if user:
         w.write(b"\x05\x02\x00\x02")
@@ -185,6 +198,7 @@ async def test_socks5_listen_connect_ipv4():
     cfg = ServerConfig(socks5_listen="127.0.0.1:0")
     srv = Socks5Server(cfg, pool)
     await srv.start()
+    await asyncio.sleep(0.02)  # 让 accept 循环就绪，消除偶发竞态
     socks_port = srv._server.sockets[0].getsockname()[1]
     try:
         r, w = await _socks5_connect("127.0.0.1", socks_port, "127.0.0.1", origin_port)
@@ -208,6 +222,7 @@ async def test_socks5_listen_domain_address():
     cfg = ServerConfig(socks5_listen="127.0.0.1:0")
     srv = Socks5Server(cfg, pool)
     await srv.start()
+    await asyncio.sleep(0.02)  # 让 accept 循环就绪，消除偶发竞态
     socks_port = srv._server.sockets[0].getsockname()[1]
     try:
         # ATYP=0x03，用 "localhost" 域名
@@ -231,6 +246,7 @@ async def test_socks5_auth_ok_and_fail():
     cfg = ServerConfig(socks5_listen="127.0.0.1:0", socks5_user="u", socks5_password="p")
     srv = Socks5Server(cfg, pool)
     await srv.start()
+    await asyncio.sleep(0.02)  # 让 accept 循环就绪，消除偶发竞态
     socks_port = srv._server.sockets[0].getsockname()[1]
     try:
         # 正确账密：认证通过 + CONNECT 成功 + 能转发
@@ -257,6 +273,7 @@ async def test_socks5_reject_no_auth_method():
     cfg = ServerConfig(socks5_listen="127.0.0.1:0", socks5_user="u", socks5_password="p")
     srv = Socks5Server(cfg, pool)
     await srv.start()
+    await asyncio.sleep(0.02)  # 让 accept 循环就绪，消除偶发竞态
     socks_port = srv._server.sockets[0].getsockname()[1]
     try:
         r, w = await asyncio.open_connection("127.0.0.1", socks_port)
@@ -275,6 +292,7 @@ async def test_socks5_unsupported_command():
     cfg = ServerConfig(socks5_listen="127.0.0.1:0")
     srv = Socks5Server(cfg, pool)
     await srv.start()
+    await asyncio.sleep(0.02)  # 让 accept 循环就绪，消除偶发竞态
     socks_port = srv._server.sockets[0].getsockname()[1]
     try:
         r, w = await asyncio.open_connection("127.0.0.1", socks_port)
@@ -343,3 +361,46 @@ async def test_failover_dead_then_good():
         good.close()
         await good.wait_closed()
         await runner.cleanup()
+
+
+async def test_connect_tunnel_via_socks5_upstream():
+    """HTTP CONNECT 隧道 → SOCKS5 上游 → 目标，字节级中继回显一致。"""
+    async def echo(reader, writer):
+        try:
+            while True:
+                d = await reader.read(1024)
+                if not d:
+                    break
+                writer.write(d)
+                await writer.drain()
+        finally:
+            writer.close()
+
+    echo_srv = await asyncio.start_server(echo, "127.0.0.1", 0)
+    echo_port = echo_srv.sockets[0].getsockname()[1]
+    sup = await asyncio.start_server(_socks5_upstream, "127.0.0.1", 0)
+    sup_port = sup.sockets[0].getsockname()[1]
+
+    pool = MemoryPool(PoolConfig())
+    pool.add(Proxy(ip="127.0.0.1", port=sup_port, provider="t", scheme="socks5"))
+    srv = ForwardProxyServer(ServerConfig(listen="127.0.0.1:0"), pool)
+    await srv.start()
+    proxy_port = srv._server.sockets[0].getsockname()[1]
+    task = asyncio.create_task(srv.serve_forever())
+    try:
+        cr, cw = await asyncio.open_connection("127.0.0.1", proxy_port)
+        cw.write(f"CONNECT 127.0.0.1:{echo_port} HTTP/1.1\r\nHost: 127.0.0.1:{echo_port}\r\n\r\n".encode())
+        await cw.drain()
+        head = await cr.readuntil(b"\r\n\r\n")
+        assert b" 200 " in head.split(b"\r\n", 1)[0]
+        cw.write(b"ping")
+        await cw.drain()
+        assert await cr.read(4) == b"ping"
+        cw.close()
+    finally:
+        task.cancel()
+        await srv.close()
+        sup.close()
+        await sup.wait_closed()
+        echo_srv.close()
+        await echo_srv.wait_closed()

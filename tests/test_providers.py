@@ -130,6 +130,13 @@ async def test_static():
     assert [(p.ip, p.port, p.user) for p in res.proxies] == [("1.2.3.4", 80, None), ("5.6.7.8", 90, "u")]
 
 
+async def test_static_socks5_scheme():
+    prov = StaticProvider({"name": "s", "scheme": "socks5", "proxies": ["1.2.3.4:1080"]})
+    res = await prov.fetch()
+    assert res.proxies[0].ip == "1.2.3.4"
+    assert res.proxies[0].scheme == "socks5"
+
+
 async def test_generic_text(monkeypatch):
     fake = FakeHTTP("1.2.3.4:80\n5.6.7.8:90\n")
     _patch(monkeypatch, "free_proxy.providers.generic.http_get", fake)

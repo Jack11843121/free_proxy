@@ -11,10 +11,12 @@ class StaticProvider(BaseProvider):
 
     async def fetch(self, session=None) -> FetchResult:  # noqa: ARG002
         proxies: List[RawProxy] = []
+        scheme = self.config.get("scheme", "http") or "http"
         entries = self.config.get("proxies") or []
         for e in entries:
             p = parse_entry(str(e))
             if p:
+                p.scheme = scheme
                 proxies.append(p)
         user = self.config.get("user")
         pwd = self.config.get("password")

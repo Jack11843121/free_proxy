@@ -9,7 +9,7 @@ import base64
 import re
 import socket
 import urllib.parse
-from typing import Optional
+from typing import Optional, Tuple
 
 from .config import ServerConfig
 from .logger import get_logger
@@ -21,7 +21,6 @@ log = get_logger("server")
 
 MAX_HEAD = 65536
 RELAY_CHUNK = 256 * 1024  # 大缓冲中转，减少系统调用次数
-CONNECT_RE = re.compile(rb"^CONNECT\s+([^:\s]+):(\d+)\s+HTTP/1\.[01]$", re.I)
 REQUEST_RE = re.compile(rb"^(\w+)\s+(\S+)\s+HTTP/1\.[01]$", re.I)
 
 _STATUS = {
@@ -113,6 +112,33 @@ def _origin_rehead(head: bytes, method: bytes, path: bytes) -> bytes:
     return b"\r\n".join(parts) + b"\r\n\r\n"
 
 
+def _parse_connect_target(line: bytes) -> Optional[Tuple[str, int]]:
+    """解析 CONNECT 目标行，返回 (host, port)；支持 IPv4 / 域名 / IPv6 字面量 [::1]:port。"""
+    parts = line.split(b" ")
+    if len(parts) < 3 or parts[0].upper() != b"CONNECT":
+        return None
+    target = parts[1]
+    if target.startswith(b"["):
+        close = target.find(b"]")
+        if close < 0 or len(target) <= close + 2 or target[close + 1:close + 2] != b":":
+            return None
+        host = target[1:close].decode("ascii")
+        try:
+            port = int(target[close + 2:])
+        except ValueError:
+            return None
+    else:
+        host_s, sep, port_s = target.rpartition(b":")
+        if not sep or not host_s:
+            return None
+        host = host_s.decode("ascii")
+        try:
+            port = int(port_s)
+        except ValueError:
+            return None
+    return host, port
+
+
 class ForwardProxyServer:
     def __init__(self, cfg: ServerConfig, pool):
         self.cfg = cfg
@@ -141,11 +167,11 @@ class ForwardProxyServer:
                 return
             first_line = head.split(b"\r\n", 1)[0]
             if first_line.upper().startswith(b"CONNECT"):
-                m = CONNECT_RE.match(first_line)
-                if not m:
+                target = _parse_connect_target(first_line)
+                if not target:
                     await _reply(writer, 400, "bad CONNECT request line")
                     return
-                await self._tunnel(reader, writer, m.group(1).decode(), int(m.group(2)))
+                await self._tunnel(reader, writer, target[0], target[1])
             else:
                 await self._forward_http(reader, writer, head, first_line)
         except Exception as e:  # noqa: BLE001

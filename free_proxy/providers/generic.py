@@ -104,4 +104,7 @@ class GenericProvider(BaseProvider):
                 if p:
                     proxies.append(p)
 
+        scheme = cfg.get("scheme", "http") or "http"
+        for p in proxies:
+            p.scheme = scheme
         return FetchResult(provider=self.name, proxies=proxies, raw=text)
