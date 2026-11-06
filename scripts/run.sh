@@ -9,4 +9,4 @@ if [ ! -d .venv ]; then
   .venv/bin/pip install -r requirements.txt
 fi
 
-exec .venv/bin/python -m free_proxy -c "${1:-config.yaml}"
+exec .venv/bin/python -m free_proxy -c "${1:-conf/config.yaml}"
