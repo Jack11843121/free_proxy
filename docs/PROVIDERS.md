@@ -160,7 +160,50 @@ sign = md5( 按参数名 ASCII 序拼接的 k1=v1&k2=v2... + "&key=" + api_key )
 
 ---
 
-## 6. 什么时候需要写新适配器
+## 6. 16云 / 亿牛云（16yun.cn）
+
+- 文档：https://www.16yun.cn/help/plain/dev-manual/api-proxy-guide/
+- 鉴权为链接内置静态密钥 + IP 白名单，**无签名**。
+
+```yaml
+- name: yiniuyun
+  type: yiniuyun
+  enabled: true
+  order_id: "${YINIYUN_ORDER_ID}"   # 订单号（PL/ORDER_ID）
+  sign: "${YINIYUN_SIGN}"           # 链接里的 s
+  user: "${YINIYUN_USER}"           # 链接里的 u
+  num: 5
+```
+
+返回 JSON `{"status":true,"proxy":[{"ip":..,"port":..}]}`；提取前把出口 IP 加白。
+
+---
+
+## 7. 花生代理（huashengdaili.com）
+
+后台「提取IP → 获取API链接」生成完整 URL；字段名与别家不同：
+主机字段 = `sever`（不是 `ip`）、密码字段 = `pw`、成功码 = `status=="0"`，适配器已内置映射与账密透传。
+
+```yaml
+- name: huasheng
+  type: huasheng
+  enabled: true
+  api_url: "https://你的花生生成链接&count=10&type=1"
+```
+
+> 数量/返回类型由生成链接里的 `count`/`type` 决定；返回里的 `user`/`pw` 会透传到代理鉴权。
+
+---
+
+## 提示：暂未内置 / 需确认的供应商
+
+- **讯代理（xundaili）**：需 MD5 签名，但官方签名公式未能核实，暂不内置以免误配；拿到官方文档后可按 `generic` 或新建适配器补上。
+- **太阳HTTP（sunhttp）**：官网不可达、接口无法核实，暂缓。
+- **芝麻代理（zhima）**：主站与接口域名均已挂牌出售、疑似停运，不建议接入。
+
+---
+
+## 8. 什么时候需要写新适配器
 
 只有当某家供应商的签名算法或响应结构**无法用 `generic` 表达**时，才需要写代码：
 
@@ -179,6 +222,8 @@ sign = md5( 按参数名 ASCII 序拼接的 k1=v1&k2=v2... + "&key=" + api_key )
 | 品赞 | `no` + `secret` | 否 | `code == 0` | `data.list[]` |
 | 快代理 | `secret_id` + `signature` | token / HMAC-SHA1 | `code == 0` | `data.proxy_list[]` |
 | 巨量 | `trade_no` + `sign` | MD5 | `code == 200` | `data.proxy_list[]` |
+| 16云/亿牛云 | `order_id` + `s` + `u` | 否 | `status == true` | `proxy[]` |
+| 花生 | 生成链接内的 key | 否 | `status == "0"` | `list[]`（主机=`sever`） |
 | 通用 | 任意 | none/token/md5/hmacsha1 | 可配 | 可配 |
 
 > **密钥安全**：所有凭证都用 `${ENV}` 环境变量注入，`config.yaml` 已被 `.gitignore` 排除，切勿把真实密钥提交进 git。

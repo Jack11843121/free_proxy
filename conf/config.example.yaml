@@ -79,6 +79,25 @@ providers:
     pt: 1                          # 1=HTTP 2=SOCKS
     ip_remain: 1                   # 返回剩余可用时长，用于精确计算过期时间
 
+  # >>> 16云 / 亿牛云（16yun.cn）<<<
+  # 文档：https://www.16yun.cn/help/plain/dev-manual/api-proxy-guide/
+  # 鉴权为链接内置静态密钥 s+u，无签名；提取前需把出口 IP 加入白名单。
+  - name: yiniuyun
+    type: yiniuyun
+    enabled: true
+    order_id: "${YINIYUN_ORDER_ID}"   # 订单号（PL/ORDER_ID）
+    sign: "${YINIYUN_SIGN}"           # 订单签名（链接里的 s）
+    user: "${YINIYUN_USER}"           # 用户名（链接里的 u）
+    num: 5
+
+  # >>> 花生代理（huashengdaili.com / ip.huashengdaili.com）<<<
+  # 后台「提取IP → 获取API链接」生成完整 URL（含用户标识 + 白名单鉴权，无签名）。
+  # 数量/返回类型由生成的链接里的 count/type 决定；返回的 user/pw 会被透传。
+  - name: huasheng
+    type: huasheng
+    enabled: true
+    api_url: "https://你的花生生成链接&count=10&type=1"   # 完整 API 链接
+
   # >>> 任意代理商：通用模板，零代码接入 <<<
   # - name: any_vendor
   #   type: generic

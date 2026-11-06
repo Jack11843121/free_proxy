@@ -153,6 +153,8 @@ curl http://127.0.0.1:8891/api/v1/proxy
 | 品赞（ipzan.com） | `pinzan` | `no` + `secret` 直传 | 白名单(whitelist)/账号密码(auth)两种鉴权，提取前出口 IP 需加白 |
 | 快代理（kuaidaili.com） | `kuaidaili` | `secret_id` + `signature`（token / HMAC-SHA1） | 私密/独享/隧道均可 |
 | 巨量代理（juliangip.com） | `julang` | `trade_no` + `sign`（MD5） | 动态/按量/企业版均可 |
+| 16云 / 亿牛云（16yun.cn） | `yiniuyun` | `order_id` + `s` + `u` 静态密钥 | 无签名，白名单鉴权 |
+| 花生代理（huashengdaili.com） | `huasheng` | 生成链接内置 key | 主机字段 `sever`、账密 `user/pw` 自动透传 |
 | 任意供应商 | `generic` | 可配 `none/token/md5/hmacsha1` | **纯 YAML 接入，不改代码** |
 | 静态/自有 | `static` | 无 / 账密 | 自有 IP 或「隧道代理」固定入口 |
 

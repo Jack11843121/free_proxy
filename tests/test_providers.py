@@ -3,10 +3,12 @@ import pytest
 
 from free_proxy.providers.base import FetchError, sign_md5
 from free_proxy.providers.generic import GenericProvider
+from free_proxy.providers.huasheng import HuashengProvider
 from free_proxy.providers.julang import JulangProvider
 from free_proxy.providers.kuaidaili import KuaidailiProvider
 from free_proxy.providers.pinzan import PinzanProvider
 from free_proxy.providers.static import StaticProvider
+from free_proxy.providers.yiniuyun import YiniuyunProvider
 
 
 class FakeHTTP:
@@ -158,3 +160,52 @@ async def test_generic_json_md5_sign(monkeypatch):
     p = fake.calls[0]["params"]
     sub = {k: v for k, v in p.items() if k != "sign"}
     assert p["sign"] == sign_md5("K", sub)
+
+
+async def test_yiniuyun_parse(monkeypatch):
+    body = '{"status":true,"proxy":[{"ip":"1.2.3.4","port":8080},{"ip":"5.6.7.8","port":9090}]}'
+    fake = FakeHTTP(body)
+    _patch(monkeypatch, "free_proxy.providers.yiniuyun.http_get", fake)
+    prov = YiniuyunProvider({"name": "16yun", "order_id": "O1", "sign": "S1", "user": "U1", "num": 2})
+    res = await prov.fetch(None)
+    assert [(p.ip, p.port) for p in res.proxies] == [("1.2.3.4", 8080), ("5.6.7.8", 9090)]
+    params = fake.calls[0]["params"]
+    assert params["s"] == "S1" and params["u"] == "U1"
+    assert params["format"] == "json" and params["count"] == 2
+
+
+async def test_yiniuyun_error(monkeypatch):
+    fake = FakeHTTP('{"status":false}')
+    _patch(monkeypatch, "free_proxy.providers.yiniuyun.http_get", fake)
+    with pytest.raises(FetchError):
+        await YiniuyunProvider({"name": "16yun", "order_id": "O1", "sign": "S1", "user": "U1"}).fetch(None)
+
+
+async def test_huasheng_json_field_mapping(monkeypatch):
+    body = '{"status":"0","list":[{"sever":"1.2.3.4","port":8080,"user":"u1","pw":"p1"}]}'
+    fake = FakeHTTP(body)
+    _patch(monkeypatch, "free_proxy.providers.huasheng.http_get", fake)
+    prov = HuashengProvider({"name": "hs", "api_url": "https://ip.huashengdaili.com/get?x=1"})
+    res = await prov.fetch(None)
+    p = res.proxies[0]
+    assert (p.ip, p.port, p.user, p.password) == ("1.2.3.4", 8080, "u1", "p1")
+
+
+async def test_huasheng_text_fallback(monkeypatch):
+    fake = FakeHTTP("1.2.3.4:8080\n5.6.7.8:9090\n")
+    _patch(monkeypatch, "free_proxy.providers.huasheng.http_get", fake)
+    prov = HuashengProvider({"name": "hs", "api_url": "https://ip.huashengdaili.com/get?x=1"})
+    res = await prov.fetch(None)
+    assert [(p.ip, p.port) for p in res.proxies] == [("1.2.3.4", 8080), ("5.6.7.8", 9090)]
+
+
+async def test_huasheng_error_status(monkeypatch):
+    fake = FakeHTTP('{"status":"1","msg":"no proxy"}')
+    _patch(monkeypatch, "free_proxy.providers.huasheng.http_get", fake)
+    with pytest.raises(FetchError):
+        await HuashengProvider({"name": "hs", "api_url": "https://ip.huashengdaili.com/get?x=1"}).fetch(None)
+
+
+async def test_huasheng_missing_url():
+    with pytest.raises(FetchError):
+        await HuashengProvider({"name": "hs"}).fetch(None)

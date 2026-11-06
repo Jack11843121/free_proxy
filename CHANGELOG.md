@@ -11,6 +11,7 @@
 - 性能基准工具 `scripts/bench.py`：测 HTTP 转发吞吐/延迟（p50/p90/p99）与 CONNECT 隧道吞吐。
 - 生产部署目录结构：`bin/`、`conf/`、`logs/`、`data/` + 管理脚本 `bin/free-proxy`（start/stop/restart/status/version）。
 - Redis 对等集群：多实例共享同一代理池、环形公平轮转、按节点标识可观测。
+- 新增供应商适配器：16云/亿牛云（16yun.cn）、花生代理（huashengdaili.com）；讯代理/太阳HTTP/芝麻代理待官方确认或已停运，见 PROVIDERS.md。
 
 **优化**
 

@@ -5,16 +5,20 @@ from typing import Dict, Type
 
 from .base import BaseProvider, FetchError, FetchResult, RawProxy
 from .generic import GenericProvider
+from .huasheng import HuashengProvider
 from .julang import JulangProvider
 from .kuaidaili import KuaidailiProvider
 from .pinzan import PinzanProvider
 from .static import StaticProvider
+from .yiniuyun import YiniuyunProvider
 
 _REGISTRY: Dict[str, Type[BaseProvider]] = {
     StaticProvider.type: StaticProvider,
     PinzanProvider.type: PinzanProvider,
     KuaidailiProvider.type: KuaidailiProvider,
     JulangProvider.type: JulangProvider,
+    YiniuyunProvider.type: YiniuyunProvider,
+    HuashengProvider.type: HuashengProvider,
     GenericProvider.type: GenericProvider,
 }
 
